@@ -1,3 +1,4 @@
+// http://192.168.4.1
 #include <WiFi.h>
 #include <NetworkClient.h>
 #include <WiFiAP.h>
@@ -5,8 +6,16 @@
 
 SMS_STS sms_sts;
 
-#define S_RXD 4    // 设置串口接收引脚
-#define S_TXD 6    // 设置串口发送引脚
+// set the default wifi mode here.
+// 1 as [AP] mode, it will not connect other wifi.
+// 2 as [STA] mode, it will connect to know wifi.
+#define DEFAULT_WIFI_MODE 1
+
+// the uart used to control servos.
+// GPIO 18 - S_RXD, GPIO 19 - S_TXD, as default.
+#define S_RXD 18
+#define S_TXD 19
+
 
 // Wi-Fi AP 配置
 const char *ssid = "lekiwi";
@@ -16,7 +25,7 @@ NetworkServer server(80);
 // 舵机配置
 byte ID[3] = {7, 8, 9};
 byte ACC[3] = {10, 10, 10};
-s16 Forward[3] = {261, -521, 261}; // 前进速度
+s16 Forward[3] = {1016, 0, -1016}; // 前进速度 0.1m/s
 s16 Stop[3] = {0, 0, 0};           // 停止速度
 
 void setup() {
@@ -66,10 +75,38 @@ void loop() {
             client.println("Content-type:text/html");
             client.println();
 
+            client.print("<!DOCTYPE html>");
+            client.print("<html>");
+            client.print("<head>");
+            client.print("<title>Car Control</title>");
+            client.print("<style>");
+            client.print("h1 {");
+            client.print("  text-align: center;"); /* 水平居中 */
+            client.print("  font-size: 3em;");      /* 设置字体大小 (你可以调整) */
+            client.print("  margin-bottom: 20px;"); /* 添加一些底部间距 */
+            client.print("}");
+            client.print("body {");
+            client.print("  display: flex;");        /* 使用 Flexbox 布局 */
+            client.print("  flex-direction: column;"); /* 垂直排列子元素 */
+            client.print("  justify-content: center;"); /* 垂直居中子元素 */
+            client.print("  align-items: center;");   /* 水平居中子元素 */
+            client.print("  min-height: 100vh;");    /* 确保 body 占据整个视口高度 */
+            client.print("  margin: 0;");           /* 移除默认的 body margin */
+            client.print("}");
+            client.print("</style>");
+            client.print("</head>");
+            client.print("<body>");
+
             // HTTP 响应内容
-            client.print("Click <a href=\"/Forward\">here</a> to move forward.<br>");
-            client.print("Click <a href=\"/Backward\">here</a> to move backward.<br>");
-            client.print("Click <a href=\"/Stop\">here</a> to stop the car.<br>");
+            client.print("<h1> <a href =\"/Forward\">Forward</a></h1>");
+            client.print("<h1> <a href =\"/Backward\">Backward</a></h1>");
+            client.print("<h1> <a href =\"/Left\">Left</a></h1>");
+            client.print("<h1> <a href =\"/Right\">Right</a></h1>");
+            client.print("<h1> <a href =\"/Stop\">Stop</a></h1>");
+
+            client.print("</body>");
+            client.print("</html>");
+
 
             // 响应结束
             client.println();
@@ -92,6 +129,19 @@ void loop() {
           Serial.println("Moving backward...");
           for (int i = 0; i < 3; i++) {
             sms_sts.WriteSpe(ID[i], -Forward[i], ACC[i]); // 设置舵机后退速度 (取反)
+          }
+        }
+        // 30 degree per second
+        if (currentLine.endsWith("GET /Right")) {
+          Serial.println("Turning right...");
+          for (int i = 0; i < 3; i++) {
+            sms_sts.WriteSpe(ID[i], 450, ACC[i]); // 设置舵机后退速度 (取反)
+          }
+        }
+        if (currentLine.endsWith("GET /Left")) {
+          Serial.println("Turning left...");
+          for (int i = 0; i < 3; i++) {
+            sms_sts.WriteSpe(ID[i], -450, ACC[i]); // 设置舵机后退速度 (取反)
           }
         }
         if (currentLine.endsWith("GET /Stop")) {
