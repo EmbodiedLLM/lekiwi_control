@@ -25,7 +25,7 @@ NetworkServer server(80);
 // 舵机配置
 byte ID[3] = {7, 8, 9};
 byte ACC[3] = {10, 10, 10};
-s16 Forward[3] = {1016, 0, -1016}; // 前进速度 0.1m/s
+s16 Forward[3] = {-1016, 0, 1016}; // 前进速度 0.1m/s
 s16 Stop[3] = {0, 0, 0};           // 停止速度
 
 void setup() {
@@ -135,13 +135,13 @@ void loop() {
         if (currentLine.endsWith("GET /Right")) {
           Serial.println("Turning right...");
           for (int i = 0; i < 3; i++) {
-            sms_sts.WriteSpe(ID[i], 450, ACC[i]); // 设置舵机后退速度 (取反)
+            sms_sts.WriteSpe(ID[i], -450, ACC[i]); // 设置舵机后退速度 (取反)
           }
         }
         if (currentLine.endsWith("GET /Left")) {
           Serial.println("Turning left...");
           for (int i = 0; i < 3; i++) {
-            sms_sts.WriteSpe(ID[i], -450, ACC[i]); // 设置舵机后退速度 (取反)
+            sms_sts.WriteSpe(ID[i], 450, ACC[i]); // 设置舵机后退速度 (取反)
           }
         }
         if (currentLine.endsWith("GET /Stop")) {
