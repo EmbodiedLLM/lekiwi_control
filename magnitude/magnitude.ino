@@ -93,9 +93,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
                     sms_sts.WriteSpe(ID[1], s8_scaled, ACC[1]); // Servo 8
                     sms_sts.WriteSpe(ID[2], s9_scaled, ACC[2]); // Servo 9
 
-                } else if (strcmp(command, "stop") == 0) {
+                } else if (strcmp(command, "stop") == 0 || strcmp(command, "end_drag") == 0) {
                      Serial.println("Action: Stopping...");
-                     sms_sts.SyncWriteSpe(ID, 3, Stop, ACC);
+                     sms_sts.WriteSpe(ID[0], 0, ACC[0]); // Servo 7
+                     sms_sts.WriteSpe(ID[1], 0, ACC[1]); // Servo 8
+                     sms_sts.WriteSpe(ID[2], 0, ACC[2]); // Servo 9
                 } else if (strcmp(command, "spin") == 0) {
                     int direction = doc["di"].as<int>();
                     int speed = Spin_left * direction;
@@ -285,6 +287,25 @@ void loop() {
        font-size: 0.9em;
        color: #555;
    }
+   .slider-container {
+       margin-top: 20px;
+       text-align: center;
+       width: 80%;
+       max-width: 300px;
+   }
+   .slider-container label {
+       display: block;
+       margin-bottom: 5px;
+       color: #333;
+   }
+   .slider-container input[type="range"] {
+       width: 100%;
+       margin: 10px 0;
+   }
+   .slider-value {
+       font-size: 0.9em;
+       color: #666;
+   }
 </style>
 </head>
 <body>
@@ -293,6 +314,12 @@ void loop() {
 
 <div id="joystick-container">
   <div id="joystick"></div>
+</div>
+
+<div class="slider-container">
+    <label for="magnitude-slider">Speed control: (0 - 2.5)</label>
+    <input type="range" id="magnitude-slider" min="0" max="2.5" step="0.01" value="1">
+    <div class="slider-value">Current speed: <span id="magnitude-value">0.1 m/s</span></div>
 </div>
 
 <div id="controls">
@@ -319,6 +346,7 @@ const containerRadius = containerRect.width / 2; // Assuming square container
 
 let isDragging = false;
 let ws;
+let currentMagnitude = 1.0; // 默认值设为 1
 
 // Connect to WebSocket
 function connectWebSocket() {
@@ -354,6 +382,14 @@ function connectWebSocket() {
 // Start the WebSocket connection
 connectWebSocket();
 
+// 添加滑动条事件监听
+const magnitudeSlider = document.getElementById('magnitude-slider');
+const magnitudeValue = document.getElementById('magnitude-value');
+
+magnitudeSlider.addEventListener('input', function() {
+    currentMagnitude = parseFloat(this.value);
+    magnitudeValue.textContent = (currentMagnitude * 0.1).toFixed(2) + ' m/s';
+});
 
 // Function to send commands via WebSocket
 function sendCommand(commandType, angle = 0, magnitude = 0) {
@@ -361,10 +397,10 @@ function sendCommand(commandType, angle = 0, magnitude = 0) {
         const message = {
             command: commandType,
             angle: angle,
-            magnitude: magnitude // 0.0 to 1.0
+            magnitude: commandType === 'move' ? currentMagnitude : 0 // 移动的时候使用划条，非移动就立刻停止
         };
         ws.send(JSON.stringify(message));
-         console.log("Sent:", message);
+        console.log("Sent:", message);
     } else {
         console.warn("WebSocket not connected.");
         statusText.textContent = "Disconnected. Cannot send command.";
@@ -446,12 +482,8 @@ function onDrag(e) {
         angle_degrees += 360;
     }
 
-    // Calculate magnitude (0.0 to 1.0)
-    // const magnitude = distance / containerRadius;
-
     // Send data via WebSocket
-    sendCommand('move', angle_degrees, 1);
-
+    sendCommand('move', angle_degrees, currentMagnitude); // 使用滑动条的值
 }
 
 // Handle touch/mouse end
@@ -463,7 +495,9 @@ function endDrag() {
     joystick.style.left = (containerCenterX - joystick.offsetWidth / 2) + 'px';
 
     // Send stop command or zero magnitude command
-    sendCommand('move', 0, 0); // Send zero magnitude when released
+    // sendCommand('move', 0, 0); // Send zero magnitude when released
+    sendCommand('end_drag'); // Send end drag to stop the car
+
 }
 
 // Add event listeners

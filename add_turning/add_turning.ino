@@ -285,20 +285,6 @@ void loop() {
        font-size: 0.9em;
        color: #555;
    }
-   #magnitude-control {
-       margin-top: 20px;
-       text-align: center;
-       width: 80%;
-       max-width: 300px;
-   }
-   #magnitude-slider {
-       width: 100%;
-       margin: 10px 0;
-   }
-   #magnitude-value {
-       font-size: 0.9em;
-       color: #555;
-   }
 </style>
 </head>
 <body>
@@ -307,12 +293,6 @@ void loop() {
 
 <div id="joystick-container">
   <div id="joystick"></div>
-</div>
-
-<div id="magnitude-control">
-    <label for="magnitude-slider">速度控制:</label>
-    <input type="range" id="magnitude-slider" min="0" max="2.5" step="0.1" value="1">
-    <div id="magnitude-value">当前速度: 1.0</div>
 </div>
 
 <div id="controls">
@@ -408,17 +388,6 @@ function sendSpinCommand(direction) {
     }
 }
 
-// 添加滑条相关的变量和函数
-const magnitudeSlider = document.getElementById('magnitude-slider');
-const magnitudeValue = document.getElementById('magnitude-value');
-let currentMagnitude = 1.0;
-
-// 更新滑条显示值
-magnitudeSlider.addEventListener('input', function() {
-    currentMagnitude = parseFloat(this.value);
-    magnitudeValue.textContent = `当前速度: ${currentMagnitude.toFixed(1)}`;
-});
-
 // Handle touch/mouse start
 function startDrag(e) {
     isDragging = true;
@@ -435,23 +404,44 @@ function onDrag(e) {
 
     const containerBoundingRect = joystickContainer.getBoundingClientRect();
     const offsetX = clientX - containerBoundingRect.left - containerCenterX;
-    const offsetY = clientY - containerBoundingRect.top - containerCenterY;
+    const offsetY = clientY - containerBoundingRect.top - containerCenterY; // Y is positive down
 
+    // Calculate distance from center
     let distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
 
+    // Limit distance to the container radius
     if (distance > containerRadius) {
         const angle = Math.atan2(offsetY, offsetX);
         offsetX = containerRadius * Math.cos(angle);
         offsetY = containerRadius * Math.sin(angle);
-        distance = containerRadius;
+        distance = containerRadius; // Set distance to max radius
     }
 
+    // Update joystick position
     joystick.style.left = (offsetX + containerCenterX - joystick.offsetWidth / 2) + 'px';
     joystick.style.top = (offsetY + containerCenterY - joystick.offsetHeight / 2) + 'px';
 
-    let angle_radians = Math.atan2(offsetX, -offsetY);
+    // Calculate angle and magnitude
+    // atan2(y, x) gives angle in radians from -PI to PI
+    // 0 degrees usually points along positive X axis. Robot 'forward' is often Y axis.
+    // Need to map this to robot's forward direction (e.g., 0 degrees = positive Y, 90 = positive X)
+    // Let's map angle: 0 degrees = straight UP (forward), 90 = RIGHT (strafe right), 180 = DOWN (backward), 270 = LEFT (strafe left)
+    // Math.atan2(y, x) gives angle relative to positive X.
+    // For UP (forward), y is negative, x is near 0. Angle is -PI/2 (-90 deg).
+    // For RIGHT (strafe right), y is near 0, x is positive. Angle is 0 deg.
+    // For DOWN (backward), y is positive, x is near 0. Angle is PI/2 (90 deg).
+    // For LEFT (strafe left), y is near 0, x is negative. Angle is PI or -PI (180 deg).
+
+    // Let's recalculate angle based on UP being 0 degrees
+    // We need the angle of the vector (offsetX, -offsetY) relative to the positive Y axis.
+    // Angle relative to positive X is atan2(offsetY, offsetX).
+    // To get angle relative to positive Y (UP), we can use atan2(offsetX, -offsetY).
+    // This gives angle from -PI to PI. Convert to 0-360 degrees.
+
+    let angle_radians = Math.atan2(offsetX, -offsetY); // Angle relative to positive Y (UP)
     let angle_degrees = angle_radians * (180 / Math.PI);
 
+    // Convert angle_degrees from -180 to 180 range to 0 to 360 range
     if (angle_degrees < 0) {
         angle_degrees += 360;
     }
